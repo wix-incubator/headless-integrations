@@ -1,95 +1,96 @@
 import buildResolver from "esm-resolve";
-import MagicString from "magic-string";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { join } from "path";
-import { Plugin, ResolvedConfig } from "vite";
+import { loadEnv, Plugin } from "vite";
 
-export function wixSDKContext(): Plugin {
-  let resolvedConfig: ResolvedConfig | null = null;
-  const virtualModuleId = "virtual:@wix-astro/sdk-context";
-
-  const moduleIdsToInject = new Set<string>();
+export function wixSDKContext(opts: { sessionCookieName: string }): Plugin {
+  const userLoadedEnv = loadEnv(
+    process.env["NODE_ENV"] ?? "development",
+    process.cwd(),
+    ""
+  );
 
   return {
     name: "inject-wix-sdk-context",
     enforce: "pre",
-    configResolved(config) {
-      resolvedConfig = config;
-    },
-    async resolveId(source, importer, options) {
-      if (source === virtualModuleId) {
-        return virtualModuleId;
-      }
+    config() {
+      return {
+        optimizeDeps: {
+          esbuildOptions: {
+            plugins: [
+              {
+                name: "inject-wix-sdk-context",
+                setup(build) {
+                  console.log("inside the esbuild plugin");
+                  build.onResolve({ filter: /^@wix\/sdk-context$/ }, (args) => {
+                    return {
+                      path: args.path,
+                      namespace: "inject-wix-sdk-context",
+                    };
+                  });
 
-      if (
-        importer === join(resolvedConfig!.root, "index.html") &&
-        !options.ssr &&
-        (source.startsWith("/src") ||
-          source.startsWith(join(resolvedConfig!.root, "src")))
-      ) {
-        const resolved = await this.resolve(source, importer, {
-          skipSelf: true,
-        });
-        if (resolved) {
-          moduleIdsToInject.add(resolved.id);
-        }
-      }
-    },
-    load(id) {
-      const aRequire = buildResolver(fileURLToPath(import.meta.url), {
-        resolveToAbsolute: true,
-      });
+                  const aRequire = buildResolver(
+                    fileURLToPath(import.meta.url),
+                    {
+                      resolveToAbsolute: true,
+                    }
+                  );
 
-      const wixSDKResolved = aRequire("@wix/sdk/client");
-      const wixSDKAuthResolved = aRequire("@wix/sdk/auth/oauth2");
+                  const integrationDir = dirname(
+                    aRequire("@wix/astro/package.json")!
+                  );
+                  const wixSDKResolved = aRequire("@wix/sdk/client");
+                  const wixSDKAuthResolved = aRequire(
+                    "@wix/sdk/auth/site-session"
+                  );
 
-      if (id === virtualModuleId) {
-        return `
-          import { createClient } from "${wixSDKResolved}";
-          import { OAuthStrategy } from "${wixSDKAuthResolved}";
+                  build.onLoad(
+                    { filter: /.*/, namespace: "inject-wix-sdk-context" },
+                    () => {
+                      return {
+                        resolveDir: integrationDir,
+                        contents: `
+                        import { createClient } from "${wixSDKResolved}";
+                        import { SiteSessionAuth } from "${wixSDKAuthResolved}";
 
-          function getCookie(name) {
-            // To prevent the for loop in the first place assign an empty array
-            // in case there are no cookies at all.
-            var cookies = document.cookie ? document.cookie.split('; ') : [];
-            var jar = {};
-            for (var i = 0; i < cookies.length; i++) {
-              var parts = cookies[i].split('=');
-              var value = parts.slice(1).join('=');
+                        function getCookieAsJson(name) {
+                          const cookies = document.cookie.split('; ');
+                          const cookie = cookies.find(row => row.startsWith(\`\${name}=\`));
 
-              try {
-                var found = decodeURIComponent(parts[0]);
-                jar[found] = converter.read(value, found);
+                          if (!cookie) return null;
 
-                if (name === found) {
-                  break
-                }
-              } catch (e) {}
-            }
+                          try {
+                            const jsonString = decodeURIComponent(cookie.split('=')[1]);
+                            return JSON.parse(jsonString);
+                          } catch (error) {
+                            console.error('Error parsing cookie JSON:', error);
+                            return null;
+                          }
+                        }
 
-            return name ? jar[name] : jar
-          }
-
-          createClient({
-            auth: OAuthStrategy({
-              clientId: import.meta.env.WIX_CLIENT_ID,
-              tokens: JSON.parse(getCookie("wixSession") ?? "{}"),
-            })
-          }).enableContext('global');
-          `;
-      }
-    },
-    transform(code, id, options) {
-      if (moduleIdsToInject.has(id) && !options?.ssr) {
-        const s = new MagicString(code);
-        s.prepend(`import '${virtualModuleId}';\n`);
-
-        return {
-          code: s.toString(),
-          map: s.generateMap(),
-        };
-      }
-      return code;
+                        export const wixContext = {
+                          client: createClient({
+                            auth: SiteSessionAuth({
+                              clientId: ${JSON.stringify(
+                                userLoadedEnv["WIX_CLIENT_ID"]
+                              )},
+                              tokens: getCookieAsJson(${JSON.stringify(
+                                opts.sessionCookieName
+                              )})?.tokens,
+                            }),
+                          })
+                        };
+                      `,
+                        loader: "js",
+                      };
+                    }
+                  );
+                },
+              },
+            ],
+          },
+        },
+      };
     },
   };
 }

@@ -3,11 +3,13 @@ import {
   AuthenticationStrategy,
   OAuthStrategy,
   TokenRole,
+  Tokens,
   createClient,
 } from "@wix/sdk";
 import type { MiddlewareHandler } from "astro";
 import { z } from "astro/zod";
 import { WIX_CLIENT_ID } from "astro:env/client";
+import { WIX_SESSION_COOKIE_NAME } from "astro:env/server";
 import { defineMiddleware } from "astro:middleware";
 import { AsyncLocalStorage } from "node:async_hooks";
 
@@ -49,10 +51,10 @@ function checkIsDynamicPageRequest(
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const wixSessionCookie = checkIsDynamicPageRequest(context)
-    ? context.cookies.get("wixSession")?.json()
+    ? context.cookies.get(WIX_SESSION_COOKIE_NAME)?.json()
     : undefined;
 
-  let tokens;
+  let tokens: Tokens;
 
   if (wixSessionCookie) {
     const tokensParseResult = z
@@ -76,8 +78,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
     } else {
       if (tokensParseResult.data.clientId === WIX_CLIENT_ID) {
         tokens = tokensParseResult.data.tokens;
+      } else {
+        tokens = await OAuthStrategy({
+          clientId: WIX_CLIENT_ID!,
+        }).generateVisitorTokens();
       }
     }
+  } else {
+    tokens = await OAuthStrategy({
+      clientId: WIX_CLIENT_ID!,
+    }).generateVisitorTokens();
   }
 
   let response;
@@ -94,9 +104,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
       () => next()
     );
 
-    if (checkIsDynamicPageRequest(context)) {
+    if (
+      checkIsDynamicPageRequest(context) &&
+      !context.cookies.has(WIX_SESSION_COOKIE_NAME)
+    ) {
       context.cookies.set(
-        "wixSession",
+        WIX_SESSION_COOKIE_NAME,
         JSON.stringify({ clientId: WIX_CLIENT_ID, tokens: auth.getTokens() }),
         {
           secure: true,

@@ -29,7 +29,7 @@
     "@cloudflare/workers-types": "^4.20241224.0",
     "@wix/blog": "^1.0.345",
     "@wix/data": "^1.0.194",
-    "@wix/sdk": "^1.15.9",
+    "@wix/sdk": "^1.15.14",
     "chalk": "^5.4.1",
     "esm-resolve": "^1.0.11",
     "globby": "^14.0.2",
