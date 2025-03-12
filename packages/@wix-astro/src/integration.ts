@@ -16,11 +16,20 @@ import chalk from "chalk";
 import { outdent } from "outdent";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { wixSDKContext } from "./vite-plugins/sdk-context.js";
 export { wixBlogLoader };
 
 export type { Runtime } from "./entrypoints/server.js";
 
-export function createIntegration(): AstroIntegration {
+export function createIntegration(
+  opts: {
+    sessionCookieName?: string;
+  } = {
+    sessionCookieName: "wixSession",
+  }
+): AstroIntegration {
+  const sessionCookieName = opts.sessionCookieName ?? "wixSession";
+
   let _config: AstroConfig;
   let _buildOutput: "server" | "static";
 
@@ -104,6 +113,13 @@ export function createIntegration(): AstroIntegration {
                 access: "public",
                 context: "client",
               },
+              WIX_SESSION_COOKIE_NAME: {
+                type: "string",
+                access: "public",
+                context: "server",
+                optional: true,
+                default: opts.sessionCookieName,
+              },
             },
           },
           build: {
@@ -121,7 +137,9 @@ export function createIntegration(): AstroIntegration {
               // It's currently commented out because there are some issues with the current implementation
               // (currently the magic import is injected into any type of module, not only JS)
               // not sure if it's necessary to inject the Wix SDK context into the client bundle
-              // wixSDKContext(),
+              wixSDKContext({
+                sessionCookieName,
+              }),
             ],
           },
           image: {
@@ -206,12 +224,12 @@ export function createIntegration(): AstroIntegration {
       },
       "astro:build:done": async (buildResult) => {
         const hasPages = buildResult.pages.length > 0;
-        const buildOutputType = _buildOutput === "static"
-          ? "static"
-          : hasPages
-          ? "hybrid"
-          : "server-only";
-
+        const buildOutputType =
+          _buildOutput === "static"
+            ? "static"
+            : hasPages
+            ? "hybrid"
+            : "server-only";
 
         const moveToClientDir = async () => {
           const clientDir = path.join(_config.outDir.pathname, "client");
@@ -221,21 +239,25 @@ export function createIntegration(): AstroIntegration {
           const files = await fs.readdir(_config.outDir.pathname);
           await Promise.all(
             files
-              .filter(file => file !== "client")
-              .map(file =>
+              .filter((file) => file !== "client")
+              .map((file) =>
                 fs.rename(
                   path.join(_config.outDir.pathname, file),
                   path.join(clientDir, file)
                 )
               )
           );
-        }
+        };
 
         if (_buildOutput === "static") {
           try {
             await moveToClientDir();
-          } catch(ex) {
-            console.error(`@wix/astro failed to move files to client directory: ${(ex as Error).message}`);
+          } catch (ex) {
+            console.error(
+              `@wix/astro failed to move files to client directory: ${
+                (ex as Error).message
+              }`
+            );
             throw ex;
           }
         }
