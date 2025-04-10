@@ -124,7 +124,6 @@ export function createIntegration(
 
         // If preWarmRedirectSession is enabled, inject our client script
         if (preWarmRedirectSession) {
-          // Use head-inline hook to include our script directly in the <head>
           const scriptLocation = path.resolve(import.meta.dirname, './client-scripts/redirect-session.js')!;
           const scriptContent = await fs.readFile(scriptLocation, 'utf-8');
           injectScript('page', scriptContent);
@@ -167,12 +166,6 @@ export function createIntegration(
                 context: "server",
                 optional: true,
                 default: opts.sessionCookieName,
-              },
-              WIX_PREWARM_REDIRECT_SESSION: {
-                type: "boolean",
-                access: "public",
-                context: "client",
-                default: preWarmRedirectSession,
               },
             },
           },
