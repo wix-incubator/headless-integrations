@@ -21,14 +21,28 @@ export { wixBlogLoader };
 
 export type { Runtime } from "./entrypoints/server.js";
 
+export interface WixAstroIntegrationOptions {
+  /**
+   * Name of the cookie used for the Wix session
+   * @default "wixSession"
+   */
+  sessionCookieName?: string;
+
+  /**
+   * Whether to pre-warm the redirect session by injecting an iframe to cookie.wix.com
+   * @default false
+   */
+  preWarmRedirectSession?: boolean;
+}
+
 export function createIntegration(
-  opts: {
-    sessionCookieName?: string;
-  } = {
+  opts: WixAstroIntegrationOptions = {
     sessionCookieName: "wixSession",
+    preWarmRedirectSession: false,
   }
 ): AstroIntegration {
   const sessionCookieName = opts.sessionCookieName ?? "wixSession";
+  const preWarmRedirectSession = opts.preWarmRedirectSession ?? false;
 
   let _config: AstroConfig;
   let _buildOutput: "server" | "static";
@@ -42,6 +56,7 @@ export function createIntegration(
         addMiddleware,
         injectRoute,
         logger,
+        injectScript,
       }) => {
         const aRequire = buildResolver(fileURLToPath(import.meta.url), {
           resolveToAbsolute: true,
@@ -105,6 +120,13 @@ export function createIntegration(
               `WIX_CLIENT_ID`
             )} not found in loaded environment variables`
           );
+        }
+
+        // If preWarmRedirectSession is enabled, inject our client script
+        if (preWarmRedirectSession) {
+          const scriptLocation = path.resolve(import.meta.dirname, './client-scripts/redirect-session.js')!;
+          const scriptContent = await fs.readFile(scriptLocation, 'utf-8');
+          injectScript('page', scriptContent);
         }
 
         updateConfig({
