@@ -21,14 +21,28 @@ export { wixBlogLoader };
 
 export type { Runtime } from "./entrypoints/server.js";
 
+export interface WixAstroIntegrationOptions {
+  /**
+   * Name of the cookie used for the Wix session
+   * @default "wixSession"
+   */
+  sessionCookieName?: string;
+
+  /**
+   * Whether to pre-warm the redirect session by injecting an iframe to cookie.wix.com
+   * @default false
+   */
+  preWarmRedirectSession?: boolean;
+}
+
 export function createIntegration(
-  opts: {
-    sessionCookieName?: string;
-  } = {
+  opts: WixAstroIntegrationOptions = {
     sessionCookieName: "wixSession",
+    preWarmRedirectSession: false,
   }
 ): AstroIntegration {
   const sessionCookieName = opts.sessionCookieName ?? "wixSession";
+  const preWarmRedirectSession = opts.preWarmRedirectSession ?? false;
 
   let _config: AstroConfig;
   let _buildOutput: "server" | "static";
@@ -42,6 +56,7 @@ export function createIntegration(
         addMiddleware,
         injectRoute,
         logger,
+        injectScript,
       }) => {
         const aRequire = buildResolver(fileURLToPath(import.meta.url), {
           resolveToAbsolute: true,
@@ -107,6 +122,14 @@ export function createIntegration(
           );
         }
 
+        // If preWarmRedirectSession is enabled, inject our client script
+        if (preWarmRedirectSession) {
+          // Use head-inline hook to include our script directly in the <head>
+          const scriptLocation = path.resolve(import.meta.dirname, './client-scripts/redirect-session.js')!;
+          const scriptContent = await fs.readFile(scriptLocation, 'utf-8');
+          injectScript('page', scriptContent);
+        }
+
         updateConfig({
           env: {
             schema: {
@@ -144,6 +167,12 @@ export function createIntegration(
                 context: "server",
                 optional: true,
                 default: opts.sessionCookieName,
+              },
+              WIX_PREWARM_REDIRECT_SESSION: {
+                type: "boolean",
+                access: "public",
+                context: "client",
+                default: preWarmRedirectSession,
               },
             },
           },

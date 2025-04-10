@@ -10,11 +10,11 @@
     "astro-integration"
   ],
   "exports": {
-    ".": "./dist/index.js",
-    "./loaders": "./dist/loaders/index.js",
-    "./entrypoints/server.js": "./dist/entrypoints/server.js",
+    ".": "./dist/src/index.js",
+    "./loaders": "./dist/src/loaders/index.js",
+    "./entrypoints/server.js": "./dist/src/entrypoints/server.js",
     "./package.json": "./package.json",
-    "./runtime": "./dist/runtime.js",
+    "./runtime": "./dist/src/runtime.js",
     "./components/login.astro": "./components/login.astro"
   },
   "files": [
