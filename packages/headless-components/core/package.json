@@ -4,8 +4,15 @@
   "scripts": {
     "build": "tsc"
   },
+  "exports": {
+    ".": "./dist/index.js",
+    "./directive": "./dist/directive.js"
+  },
   "devDependencies": {
     "@types/node": "^20.9.0",
     "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@preact/signals-react": "^3.1.1"
   }
 }

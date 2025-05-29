@@ -21,5 +21,14 @@
     "noEmitOnError": false,
     "jsx": "react-jsx"
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "src/vitest.setup.ts"
+  ]
 }

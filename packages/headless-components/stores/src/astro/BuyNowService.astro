@@ -1,0 +1,39 @@
+---
+import { BuyNowServiceProvider } from "./BuyNowServiceContext";
+import { buynowService, buynowserviceDefinition } from "../services";
+import { createServicesManager, createServicesMap } from '@wix/services-manager';
+
+const map = createServicesMap().addService(buynowserviceDefinition, buynowService, {
+  productId: Astro.props.productId,
+  variantId: Astro.props.variantId,
+});
+const mgr = createServicesManager(map);
+---
+
+<BuyNowServiceProvider service={mgr.getService(buynowserviceDefinition)}>
+  <context-provider data-intial-data={JSON.stringify(Astro.props)}>
+    <slot />
+  </context-provider>
+</BuyNowServiceProvider>
+<script>
+  import { createServicesManager, createServicesMap } from '@wix/services-manager';
+  import { buynowService, buynowserviceDefinition } from "../services";
+
+  class ContextProvider extends HTMLElement {
+    service: ReturnType<typeof buynowService>;
+    constructor() {
+      super();
+      console.log("BuyNowServiceProvider ContextProvider::constructor", this.getAttribute("data-intial-data"));
+
+      const map = createServicesMap().addService(buynowserviceDefinition, buynowService, JSON.parse(this.getAttribute("data-intial-data")!));
+      const mgr = createServicesManager(map);
+      const service = mgr.getService(buynowserviceDefinition);
+
+      this.service = service;
+      (globalThis as any).runDirectivePendingTaks && (globalThis as any).runDirectivePendingTaks();
+    }
+
+  }
+
+  customElements.define("context-provider", ContextProvider);
+</script>

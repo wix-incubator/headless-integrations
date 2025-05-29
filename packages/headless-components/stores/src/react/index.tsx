@@ -1,3 +1,1 @@
-export function Stores() {
-  return <div>Stores</div>;
-}
+export { BuyNow } from "./BuyNow";
