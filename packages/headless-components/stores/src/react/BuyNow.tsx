@@ -1,16 +1,18 @@
 import { useService } from "@wix/services-manager-react";
 import { BuyNowServiceDefinition } from "../services/buy-now-service";
 
+export type RedirectToCheckoutCallback = () => void
+
 /**
  * Props passed to the render function of the BuyNow component
  */
-export type BuyNowRenderProps = {
+export interface BuyNowRenderProps {
   /** Whether the buy now operation is currently loading */
   isLoading: boolean;
   /** The name of the product being purchased */
   productName: string;
   /** Function to redirect the user to the checkout page */
-  redirectToCheckout: () => void;
+  redirectToCheckout: RedirectToCheckoutCallback;
   /** The error message if the buy now operation fails */
   error: string | null;
   /** The price of the product being purchased */
@@ -19,12 +21,13 @@ export type BuyNowRenderProps = {
   currency: string;
 };
 
+export type ChildrenCallback = (props: BuyNowRenderProps) => React.ReactNode
 /**
  * Props for the BuyNow component
  */
-export type BuyNowProps = {
+export interface BuyNowProps {
   /** Render function that receives buy now state and actions */
-  children: (props: BuyNowRenderProps) => React.ReactNode;
+  children: ChildrenCallback;
 };
 
 /**
@@ -32,10 +35,6 @@ export type BuyNowProps = {
  *
  * This component manages the state and actions for a "buy now" flow, allowing consumers
  * to render their own UI while accessing the underlying buy now functionality.
- *
- * @param props - The component props
- * @returns The rendered children with buy now state and actions
- *
  * @example
  * ```tsx
  * <BuyNow>
